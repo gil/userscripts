@@ -1,0 +1,9 @@
+{
+  "prettier": {
+    "singleQuote": true,
+    "arrowParens": "avoid"
+  },
+  "devDependencies": {
+    "prettier": "3.0.3"
+  }
+}
