@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "format": "prettier . --write"
+  },
   "prettier": {
     "singleQuote": true,
     "arrowParens": "avoid"
