@@ -6,10 +6,10 @@
 // @author       Andre Gil
 // @match        https://app.slack.com/*
 // @icon         https://www.google.com/s2/favicons?domain=slack.com
-// @grant        GM_addStyle
+// @grant        GM.addStyle
 // ==/UserScript==
 
-GM_addStyle(`
+GM.addStyle(`
   div[aria-label="Emoji picker"] {
     zoom: 1.5;
   }

@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         YouTube Detox
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.1
+// @version      0.0.2
 // @description  Remove a bunch of stuff to make YouTube less addictive and distracting
 // @author       Andre Gil
 // @match        https://*.youtube.com/*
 // @icon         https://www.google.com/s2/favicons?domain=youtube.com
-// @grant        GM_addStyle
+// @grant        GM.addStyle
 // ==/UserScript==
 
-GM_addStyle(`
+GM.addStyle(`
   /* Cards */
   .ytp-ce-element,
 
@@ -52,10 +52,26 @@ GM_addStyle(`
   }
 `);
 
-function goToSubscriptions() {
-  window.location.replace('/feed/subscriptions');
+const debounce = (callback, wait) => {
+  let timeoutId = null;
+  return (...args) => {
+    window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(() => {
+      callback(...args);
+    }, wait);
+  };
 }
 
-if (window.location.pathname === '/') {
-  goToSubscriptions();
+function goToSubscriptionsIfNeeded() {
+  if (window.location.pathname === '/') {
+    window.location.replace('/feed/subscriptions');
+  }
 }
+
+const pageManager = document.getElementById('page-manager');
+if( pageManager ) {
+  const observer = new MutationObserver(debounce(goToSubscriptionsIfNeeded, 500));
+  observer.observe(pageManager, { childList: true });
+}
+
+goToSubscriptionsIfNeeded();
