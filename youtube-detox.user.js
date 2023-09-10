@@ -60,7 +60,7 @@ const debounce = (callback, wait) => {
       callback(...args);
     }, wait);
   };
-}
+};
 
 function goToSubscriptionsIfNeeded() {
   if (window.location.pathname === '/') {
@@ -69,8 +69,10 @@ function goToSubscriptionsIfNeeded() {
 }
 
 const pageManager = document.getElementById('page-manager');
-if( pageManager ) {
-  const observer = new MutationObserver(debounce(goToSubscriptionsIfNeeded, 500));
+if (pageManager) {
+  const observer = new MutationObserver(
+    debounce(goToSubscriptionsIfNeeded, 500),
+  );
   observer.observe(pageManager, { childList: true });
 }
 
