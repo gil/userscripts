@@ -9,14 +9,21 @@
 // @grant        none
 // ==/UserScript==
 
-const VERSION = '0.9.2'; // web eSheep version
+// This code was copied from the version 0.9.2 of the following project by Adriano Petrucci:
+// https://github.com/Adrianotiger/web-esheep
+//
+// Adriano also provides a userscript, but it loads external files and some pages won't accept that.
+// So I've combined everything in a single file, removing a few things that I don't need.
+//
+// The changes are:
+// - Removed the info box
+// - Can't change pets
+// - Applied Prettier on the code
+// - No debugging
+// - A few other minor changes
+
 const COLLISION_WITH = ['div', 'hr']; // elements on page to detect for collisions
 
-/*
- * eSheep class.
- * Create a new class of this type if you want a new pet. Will create the components for the pet.
- * Once created, you can call [variableName].Start() to start the animation with your desired pet.
- */
 class eSheep {
   constructor(isChild) {
     this.id = Date.now() + Math.random();
