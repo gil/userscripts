@@ -5,7 +5,6 @@
 // @description  Add an eSheep to any page
 // @author       Andre Gil and Adriano Petrucci
 // @match        https://*.google.com/*
-// @match        https://*.slack.com/*
 // @icon         http://esheep.petrucci.ch/favicon.gif
 // @grant        GM.addElement
 // ==/UserScript==
