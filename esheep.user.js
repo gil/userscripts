@@ -304,20 +304,21 @@ class eSheep {
 
   // Parse the human readable expression from XML to a computer readable expression
   _parseKeyWords(value) {
-    value = value.replace(/screenW/g, this.screenW);
-    value = value.replace(/screenH/g, this.screenH);
-    value = value.replace(/areaW/g, this.screenH);
-    value = value.replace(/areaH/g, this.screenH);
-    value = value.replace(/imageW/g, this.imageW);
-    value = value.replace(/imageH/g, this.imageH);
-    value = value.replace(/random/g, Math.random() * 100);
-    value = value.replace(/randS/g, this.randS);
-    value = value.replace(/imageX/g, this.imageX);
-    value = value.replace(/imageY/g, this.imageY);
+    value = value
+      .replace(/screenW/g, this.screenW)
+      .replace(/screenH/g, this.screenH)
+      .replace(/areaW/g, this.screenH)
+      .replace(/areaH/g, this.screenH)
+      .replace(/imageW/g, this.imageW)
+      .replace(/imageH/g, this.imageH)
+      .replace(/random/g, Math.random() * 100)
+      .replace(/randS/g, this.randS)
+      .replace(/imageX/g, this.imageX)
+      .replace(/imageY/g, this.imageY);
 
-    var ret = 0;
     try {
-      ret = eval(value);
+      const evalFunc = new Function('return ' + value);
+      return evalFunc();
     } catch (err) {
       console.error(
         "Unable to parse this position: \n'" +
@@ -326,7 +327,7 @@ class eSheep {
           err.message,
       );
     }
-    return ret;
+    return 0;
   }
 
   /*
