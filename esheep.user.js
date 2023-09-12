@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eSheep
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.1
+// @version      0.0.2
 // @description  Add an eSheep to any page
 // @author       Andre Gil and Adriano Petrucci
 // @match        https://*.google.com/*
