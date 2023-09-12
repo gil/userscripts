@@ -16,8 +16,10 @@
 // So I've combined everything in a single file, removing a few things that I don't need.
 //
 // The changes are:
+// - All code in a single file
+// - Replaced eval() to avoid unsafe-eval CSP problems
 // - Removed the info box
-// - Can't change pets
+// - Can't change pets anymore
 // - Applied Prettier on the code
 // - No debugging
 // - A few other minor changes
@@ -318,7 +320,7 @@ class eSheep {
 
     try {
       const number = Number(value);
-      return !isNaN(number) ? number : this._slowEval(value);
+      return !isNaN(number) ? number : this._hackyEval(value);
     } catch (err) {
       console.error(
         "Unable to parse this position: \n'" +
@@ -331,7 +333,7 @@ class eSheep {
   }
 
   // Hack needed to evaluate some mathematical expressions without using eval() or new Function()
-  _slowEval(value) {
+  _hackyEval(value) {
     const tag = GM.addElement('script', {
       textContent: `window.__eSheepExpressionResult = ${value};`,
     });
