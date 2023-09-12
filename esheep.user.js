@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         eSheep
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.2
+// @version      0.0.3
 // @description  Add an eSheep to any page
 // @author       Andre Gil and Adriano Petrucci
 // @match        https://*.google.com/*
+// @match        https://*.slack.com/*
 // @icon         http://esheep.petrucci.ch/favicon.gif
-// @grant        none
+// @grant        GM.addElement
 // ==/UserScript==
 
 // This code was copied from the version 0.9.2 of the following project by Adriano Petrucci:
@@ -317,8 +318,8 @@ class eSheep {
       .replace(/imageY/g, this.imageY);
 
     try {
-      const evalFunc = new Function('return ' + value);
-      return evalFunc();
+      const number = Number(value);
+      return !isNaN(number) ? number : this._slowEval(value);
     } catch (err) {
       console.error(
         "Unable to parse this position: \n'" +
@@ -328,6 +329,15 @@ class eSheep {
       );
     }
     return 0;
+  }
+
+  // Hack needed to evaluate some mathematical expressions without using eval() or new Function()
+  _slowEval(value) {
+    const tag = GM.addElement('script', {
+      textContent: `window.__eSheepExpressionResult = ${value};`,
+    });
+    tag.parentElement.removeChild(tag);
+    return Number(unsafeWindow.__eSheepExpressionResult);
   }
 
   /*
