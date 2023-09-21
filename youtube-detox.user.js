@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Detox
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.2
+// @version      0.0.3
 // @description  Remove a bunch of stuff to make YouTube less addictive and distracting
 // @author       Andre Gil
 // @match        https://*.youtube.com/*
@@ -48,7 +48,12 @@ GM.addStyle(`
 
   /* Fade out shorts */
   a.ytd-thumbnail[href*="/shorts/"] {
-    opacity: 0.2;
+    opacity: 0.1;
+  }
+
+  /* Fade out watched videos (doesn't work on Firefox :/) */
+  ytd-rich-grid-media:has(ytd-thumbnail-overlay-resume-playback-renderer) {
+    opacity: 0.3;
   }
 `);
 
