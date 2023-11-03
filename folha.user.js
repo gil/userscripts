@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/digital/leitor.do
 // @grant       none
-// @version     0.3
+// @version     0.4
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -73,7 +73,7 @@ window.addEventListener('load', () => {
       const xhr = new XMLHttpRequest();
 
       const extension = page.dataset.zoom.split('.').at(-1);
-      const name = `${ issue } - ${ getBook(page) } ${ String(page.dataset.label).padStart(3, '0') } [ID ${ page.dataset.id }].${ extension }`;
+      const name = `${ issue } - ${ getBook(page) } ${ zeroPad(page.dataset.label, 3) } [ID ${ page.dataset.id }].${ extension }`;
 
       xhr.open('GET', page.dataset.zoom, true);
       xhr.responseType = 'blob';
@@ -96,7 +96,11 @@ window.addEventListener('load', () => {
   function getIssue() {
     const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
     const date = document.querySelector('#filter-by-date').value.split('.');
-    return `${ date[2] }-${ months.indexOf(date[1]) + 1 }-${ date[0] }`;
+    return `${ date[2] }-${ zeroPad(months.indexOf(date[1]) + 1, 2) }-${ zeroPad(date[0], 2) }`;
+  }
+
+  function zeroPad(number, count) {
+    return String(number).padStart(count, '0');
   }
 
 });
