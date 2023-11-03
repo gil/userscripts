@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name        Baixa como ZIP - folha.com.br
+// @name        Baixa Páginas - folha.com.br
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/digital/leitor.do
 // @grant       none
-// @version     0.1
+// @version     0.2
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -14,32 +14,43 @@ window.addEventListener('load', () => {
 
   document.body.insertAdjacentHTML('beforeend', `
     <div style="position: absolute; right: 0; top: 60px; z-index: 999; background: #ED1A3A; color: #FFF; padding: 20px;" data-downloader>
-      <button>Baixar!</button>
+      <button data-download-left>Esquerda</button>
+      <button data-download-right>Direita</button>
+      <hr/>
+      <button data-download-all>Baixar tudo (ZIP)</button>
+      <div data-download-all-status></div>
     </div>
   `);
 
-  const div = document.querySelector('[data-downloader]');
-  div.querySelector('button').addEventListener('click', () => {
+  const divEl = document.querySelector('[data-downloader]');
+  const statusEl = divEl.querySelector('[data-download-all-status]');
+
+  divEl.querySelector('[data-download-left]').addEventListener('click', () => downloadSingle(0));
+  divEl.querySelector('[data-download-right]').addEventListener('click', () => downloadSingle(1));
+  divEl.querySelector('[data-download-all]').addEventListener('click', () => {
     updateProgress();
-    start();
-  })
+    downloadAll();
+  });
+
+  function downloadSingle(index) {
+    const pages = document.querySelectorAll('.swiper-slide-active [data-zoom]');
+    if( !pages[index] ) {
+      return alert('Página não encontrada!');
+    }
+    fetchPage(pages[index])
+      .then(({ blob, name }) => saveAs(blob, name));
+  }
 
   let processed = 0;
   let pages = [];
 
-  function start() {
+  function downloadAll() {
     const zip = new JSZip();
-    const issue = document.querySelector('#filter-by-date').value;
-    pages = Array.from(document.querySelectorAll('[data-zoom]')).map(img => img.dataset.zoom);
+    pages = document.querySelectorAll('[data-zoom]');
 
     pages.forEach((page, index) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', page, true);
-      xhr.responseType = 'blob';
-      xhr.onload = function () {
-        const blob = new Blob([xhr.response]);//, { type : 'application/octet-stream' });
-        const extension = page.split('.').at(-1);
-        zip.file(`${ issue } - Pagina ${ String(index + 1).padStart(3, '0') }.${ extension }`, blob, { base64: true });
+      fetchPage(pages[index]).then(({ blob, name, issue }) => {
+        zip.file(name, blob, { base64: true });
         processed++;
         updateProgress();
 
@@ -48,13 +59,38 @@ window.addEventListener('load', () => {
             saveAs(content, `${issue}.zip`);
           });
         }
+      });
+    });
+  }
+
+  function updateProgress() {
+    statusEl.innerText = `${ processed } de ${ pages.length }`;
+  }
+
+  function fetchPage(page) {
+    return new Promise(resolve => {
+      const xhr = new XMLHttpRequest();
+
+      const issue = document.querySelector('#filter-by-date').value;
+      const extension = page.dataset.zoom.split('.').at(-1);
+      const name = `${ issue } - ${ getBook(page) } ${ String(page.dataset.label).padStart(3, '0') } [ID ${ page.dataset.id }].${ extension }`;
+
+      xhr.open('GET', page.dataset.zoom, true);
+      xhr.responseType = 'blob';
+      xhr.onload = function () {
+        const blob = new Blob([xhr.response], { type : 'application/octet-stream' });
+        resolve({ blob, name, issue });
       };
       xhr.send();
     });
   }
 
-  function updateProgress() {
-    div.innerHTML = `${ processed } de ${ pages.length }`;
+  function getBook(page) {
+    const booksEl = page.closest('[data-book]');
+    const books = booksEl.dataset.book.split(', ');
+    const pages = Array.from(booksEl.querySelectorAll('[data-zoom]'));
+    const index = pages.indexOf(page);
+    return books[index];
   }
 
 });
