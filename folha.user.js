@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name        Baixa Páginas - folha.com.br
 // @namespace   Violentmonkey Scripts
-// @match       https://acervo.folha.com.br/digital/leitor.do
+// @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.4
+// @version     0.5
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -14,16 +14,24 @@ window.addEventListener('load', () => {
 
   document.body.insertAdjacentHTML('beforeend', `
     <div style="position: absolute; right: 0; top: 60px; z-index: 999; background: #ED1A3A; color: #FFF; padding: 20px;" data-downloader>
+      <h3 style="margin: 10px 0;">Baixar</h3>
       <button data-download-left>Esquerda</button>
       <button data-download-right>Direita</button>
       <hr/>
       <button data-download-all>Baixar tudo (ZIP)</button>
       <div data-download-all-status></div>
+
+      <h3 style="margin: 10px 0;">Buscar</h3>
+      <input data-search-month type="number" style="width: 40px; font-size: 13px;" value="12" />
+      <input data-search-year type="number" style="width: 60px; font-size: 13px;" value="1959" />
+      <button data-search>Busca</button>
     </div>
   `);
 
   const divEl = document.querySelector('[data-downloader]');
   const statusEl = divEl.querySelector('[data-download-all-status]');
+  const searchMonthEl = divEl.querySelector('[data-search-month]');
+  const searchYearEl = divEl.querySelector('[data-search-year]');
 
   divEl.querySelector('[data-download-left]').addEventListener('click', () => downloadSingle(0));
   divEl.querySelector('[data-download-right]').addEventListener('click', () => downloadSingle(1));
@@ -31,6 +39,7 @@ window.addEventListener('load', () => {
     updateProgress();
     downloadAll();
   });
+  divEl.querySelector('[data-search]').addEventListener('click', search);
 
   function downloadSingle(index) {
     const pages = document.querySelectorAll('.swiper-slide-active [data-zoom]');
@@ -95,12 +104,22 @@ window.addEventListener('load', () => {
 
   function getIssue() {
     const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-    const date = document.querySelector('#filter-by-date').value.split('.');
+    const dateEl = document.querySelector('#filter-by-date');
+    if( !dateEl ) {
+      return '';
+    }
+    const date = dateEl.value.split('.');
     return `${ date[2] }-${ zeroPad(months.indexOf(date[1]) + 1, 2) }-${ zeroPad(date[0], 2) }`;
   }
 
   function zeroPad(number, count) {
     return String(number).padStart(count, '0');
+  }
+
+  function search() {
+    const dateFrom = new Date(+searchYearEl.value, searchMonthEl.value - 1, 1);
+    const dateTo = new Date(+searchYearEl.value, searchMonthEl.value, 0);
+    location.assign(`https://acervo.folha.com.br/busca.do?startDate=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }&endDate=${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&periododesc=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }+-+${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&page=1&por=Por+Per%C3%ADodo&sort=asc`);
   }
 
 });
