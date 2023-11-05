@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.5
+// @version     0.6
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -17,8 +17,15 @@ window.addEventListener('load', () => {
       <h3 style="margin: 10px 0;">Baixar</h3>
       <button data-download-left>Esquerda</button>
       <button data-download-right>Direita</button>
+
       <hr/>
-      <button data-download-all>Baixar tudo (ZIP)</button>
+
+      <div>
+        <select data-download-all-books>
+          <option value="">Todos Cadernos</option>
+        </select>
+      </div>
+      <button data-download-all>Baixar (ZIP)</button>
       <div data-download-all-status></div>
 
       <h3 style="margin: 10px 0;">Buscar</h3>
@@ -32,14 +39,23 @@ window.addEventListener('load', () => {
   const statusEl = divEl.querySelector('[data-download-all-status]');
   const searchMonthEl = divEl.querySelector('[data-search-month]');
   const searchYearEl = divEl.querySelector('[data-search-year]');
+  const downloadAllBooksEl = divEl.querySelector('[data-download-all-books]');
 
   divEl.querySelector('[data-download-left]').addEventListener('click', () => downloadSingle(0));
   divEl.querySelector('[data-download-right]').addEventListener('click', () => downloadSingle(1));
-  divEl.querySelector('[data-download-all]').addEventListener('click', () => {
-    updateProgress();
-    downloadAll();
-  });
+  divEl.querySelector('[data-download-all]').addEventListener('click', downloadAll);
   divEl.querySelector('[data-search]').addEventListener('click', search);
+
+  const issue = getIssue();
+  readBookOptions();
+
+  function downloadAll() {
+    let pages = Array.from(document.querySelectorAll('[data-zoom]'));
+    if( downloadAllBooksEl.value ) {
+      pages = pages.filter(page => getBook(page) === downloadAllBooksEl.value);
+    }
+    downloadMany(pages, downloadAllBooksEl.value);
+  }
 
   function downloadSingle(index) {
     const pages = document.querySelectorAll('.swiper-slide-active [data-zoom]');
@@ -50,31 +66,28 @@ window.addEventListener('load', () => {
       .then(({ blob, name }) => saveAs(blob, name));
   }
 
-  const issue = getIssue();
-  let processed = 0;
-  let pages = [];
-
-  function downloadAll() {
+  function downloadMany(pages, book) {
     const zip = new JSZip();
-    pages = document.querySelectorAll('[data-zoom]');
+    let processed = 0;
+    updateProgress(processed, pages.length);
 
     pages.forEach((page, index) => {
       fetchPage(pages[index]).then(({ blob, name, issue }) => {
         zip.file(name, blob, { base64: true });
         processed++;
-        updateProgress();
+        updateProgress(processed, pages.length);
 
         if( processed === pages.length ) {
           zip.generateAsync({type:"blob"}).then(function(content) {
-            saveAs(content, `${issue}.zip`);
+            saveAs(content, `${issue} - ${ book || 'Todos Cadernos' }.zip`);
           });
         }
       });
     });
   }
 
-  function updateProgress() {
-    statusEl.innerText = `${ processed } de ${ pages.length }`;
+  function updateProgress(processed, total) {
+    statusEl.innerText = `${ processed } de ${ total }`;
   }
 
   function fetchPage(page) {
@@ -114,6 +127,15 @@ window.addEventListener('load', () => {
 
   function zeroPad(number, count) {
     return String(number).padStart(count, '0');
+  }
+
+  function readBookOptions() {
+    Array.from(document.querySelectorAll('.books[data-book]'))
+      .forEach(book => {
+        downloadAllBooksEl.insertAdjacentHTML('beforeend', `
+          <option value="${ book.dataset.book }">${ book.dataset.book }</option>
+        `);
+      });
   }
 
   function search() {
