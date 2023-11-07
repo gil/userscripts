@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.6
+// @version     0.7
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -12,7 +12,7 @@
 
 window.addEventListener('load', () => {
 
-  document.body.insertAdjacentHTML('beforeend', `
+  document.body.insertAdjacentHTML('beforeEnd', `
     <div style="position: absolute; right: 0; top: 60px; z-index: 999; background: #ED1A3A; color: #FFF; padding: 20px;" data-downloader>
       <h3 style="margin: 10px 0;">Baixar</h3>
       <button data-download-left>Esquerda</button>
@@ -46,8 +46,16 @@ window.addEventListener('load', () => {
   divEl.querySelector('[data-download-all]').addEventListener('click', downloadAll);
   divEl.querySelector('[data-search]').addEventListener('click', search);
 
+  window.addEventListener('keyup', event => {
+    if( event.keyCode === 69 ) { // e
+      downloadSingle(0);
+    } else if( event.keyCode === 68 ) { // d
+      downloadSingle(1);
+    }
+  });
+
   const issue = getIssue();
-  readBookOptions();
+  renderIssue();
 
   function downloadAll() {
     let pages = Array.from(document.querySelectorAll('[data-zoom]'));
@@ -121,27 +129,51 @@ window.addEventListener('load', () => {
     if( !dateEl ) {
       return '';
     }
-    const date = dateEl.value.split('.');
-    return `${ date[2] }-${ zeroPad(months.indexOf(date[1]) + 1, 2) }-${ zeroPad(date[0], 2) }`;
+    const dateParts = dateEl.value.split('.');
+    const date = new Date(dateParts[2], months.indexOf(dateParts[1]), dateParts[0]);
+    const weekName = date.toLocaleString('pt-BR', {  weekday: 'long' }).split('-')[0];
+    return `${ date.getFullYear() }-${ zeroPad(date.getMonth() + 1, 2) }-${ zeroPad(date.getDate(), 2) } (${ weekName })`;
+  }
+
+  function renderIssue() {
+    divEl.insertAdjacentHTML('afterBegin', `
+      <h2 style="margin: 0 0 10px 0;">${ issue }</h2>
+    `);
   }
 
   function zeroPad(number, count) {
     return String(number).padStart(count, '0');
   }
 
-  function readBookOptions() {
-    Array.from(document.querySelectorAll('.books[data-book]'))
-      .forEach(book => {
-        downloadAllBooksEl.insertAdjacentHTML('beforeend', `
-          <option value="${ book.dataset.book }">${ book.dataset.book }</option>
-        `);
-      });
-  }
-
   function search() {
     const dateFrom = new Date(+searchYearEl.value, searchMonthEl.value - 1, 1);
     const dateTo = new Date(+searchYearEl.value, searchMonthEl.value, 0);
     location.assign(`https://acervo.folha.com.br/busca.do?startDate=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }&endDate=${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&periododesc=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }+-+${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&page=1&por=Por+Per%C3%ADodo&sort=asc`);
+  }
+
+  function renderBookOptions() {
+    const books = Array.from(document.querySelectorAll('.books[data-book]'));
+    books.forEach(book => {
+      downloadAllBooksEl.insertAdjacentHTML('beforeEnd', `
+        <option value="${ book.dataset.book }">${ book.dataset.book }</option>
+      `);
+    });
+    return books;
+  }
+
+  function booksObserverCallback() {
+      const bookCount = renderBookOptions().length;
+      if( bookCount > 0 ) {
+        booksObserver.disconnect();
+        return true;
+      }
+  }
+
+  const booksObserver = new MutationObserver(booksObserverCallback);
+
+  if( !booksObserverCallback() ) {
+    const booksWrapperEl = document.querySelector('.pages.navigation-view .swiper-wrapper.wrapper');
+    booksObserver.observe(booksWrapperEl, { childList: true });
   }
 
 });
