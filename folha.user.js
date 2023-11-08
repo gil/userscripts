@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.7
+// @version     0.8
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -14,28 +14,31 @@ window.addEventListener('load', () => {
 
   document.body.insertAdjacentHTML('beforeEnd', `
     <div style="position: absolute; right: 0; top: 60px; z-index: 999; background: #ED1A3A; color: #FFF; padding: 20px;" data-downloader>
-      <h3 style="margin: 10px 0;">Baixar</h3>
-      <button data-download-left>Esquerda</button>
-      <button data-download-right>Direita</button>
+      <div data-collapsible-container>
+        <h3 style="margin: 10px 0;">Baixar</h3>
+        <button data-download-left>Esquerda</button>
+        <button data-download-right>Direita</button>
 
-      <hr/>
+        <hr/>
 
-      <div>
-        <select data-download-all-books>
-          <option value="">Todos Cadernos</option>
-        </select>
+        <div>
+          <select data-download-all-books>
+            <option value="">Todos Cadernos</option>
+          </select>
+        </div>
+        <button data-download-all>Baixar (ZIP)</button>
+        <div data-download-all-status></div>
+
+        <h3 style="margin: 10px 0;">Buscar</h3>
+        <input data-search-month type="number" style="width: 40px; font-size: 13px;" value="12" />
+        <input data-search-year type="number" style="width: 60px; font-size: 13px;" value="1959" />
+        <button data-search>Busca</button>
       </div>
-      <button data-download-all>Baixar (ZIP)</button>
-      <div data-download-all-status></div>
-
-      <h3 style="margin: 10px 0;">Buscar</h3>
-      <input data-search-month type="number" style="width: 40px; font-size: 13px;" value="12" />
-      <input data-search-year type="number" style="width: 60px; font-size: 13px;" value="1959" />
-      <button data-search>Busca</button>
     </div>
   `);
 
   const divEl = document.querySelector('[data-downloader]');
+  const collapsibleContainerEl = divEl.querySelector('[data-collapsible-container]');
   const statusEl = divEl.querySelector('[data-download-all-status]');
   const searchMonthEl = divEl.querySelector('[data-search-month]');
   const searchYearEl = divEl.querySelector('[data-search-year]');
@@ -53,6 +56,16 @@ window.addEventListener('load', () => {
       downloadSingle(1);
     }
   });
+
+  function isLargeDisplay() {
+    return window.matchMedia('(min-width: 768px)').matches;
+  }
+
+  if( !isLargeDisplay() ) {
+    divEl.style.top = '0';
+    divEl.style.padding = '10px';
+    collapsibleContainerEl.style.display = 'none';
+  }
 
   const issue = getIssue();
   renderIssue();
@@ -137,8 +150,14 @@ window.addEventListener('load', () => {
 
   function renderIssue() {
     divEl.insertAdjacentHTML('afterBegin', `
-      <h2 style="margin: 0 0 10px 0;">${ issue }</h2>
+      <h2 style="margin: 0; cursor: pointer;">${ isLargeDisplay() ? issue + ' ▴' : '▾' }</h2>
     `);
+    const el = divEl.querySelector('h2');
+    el.addEventListener('click', () => {
+      const isCollapsed = collapsibleContainerEl.style.display === 'none';
+      collapsibleContainerEl.style.display = isCollapsed ? 'block' : 'none';
+      el.innerHTML = isCollapsed ? issue + ' ▴' : '▾';
+    })
   }
 
   function zeroPad(number, count) {
