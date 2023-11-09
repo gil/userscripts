@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.8
+// @version     0.9
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -16,8 +16,8 @@ window.addEventListener('load', () => {
     <div style="position: absolute; right: 0; top: 60px; z-index: 999; background: #ED1A3A; color: #FFF; padding: 20px;" data-downloader>
       <div data-collapsible-container>
         <h3 style="margin: 10px 0;">Baixar</h3>
-        <button data-download-left>Esquerda</button>
-        <button data-download-right>Direita</button>
+        <button data-download-left>(E)squerda</button>
+        <button data-download-right>(D)ireita</button>
 
         <hr/>
 
@@ -33,6 +33,16 @@ window.addEventListener('load', () => {
         <input data-search-month type="number" style="width: 40px; font-size: 13px;" value="12" />
         <input data-search-year type="number" style="width: 60px; font-size: 13px;" value="1959" />
         <button data-search>Busca</button>
+
+        <div style="margin-top: 10px;">
+          <select data-search-issues>
+            <option value="">Abrir edição</option>
+          </select>
+          <div>
+            <button data-previous-issue>Anterior (⬆)</button>
+            <button data-next-issue>Próxima (⬇)</button>
+          </div>
+        </div>
       </div>
     </div>
   `);
@@ -47,13 +57,16 @@ window.addEventListener('load', () => {
   divEl.querySelector('[data-download-left]').addEventListener('click', () => downloadSingle(0));
   divEl.querySelector('[data-download-right]').addEventListener('click', () => downloadSingle(1));
   divEl.querySelector('[data-download-all]').addEventListener('click', downloadAll);
-  divEl.querySelector('[data-search]').addEventListener('click', search);
 
   window.addEventListener('keyup', event => {
     if( event.keyCode === 69 ) { // e
       downloadSingle(0);
     } else if( event.keyCode === 68 ) { // d
       downloadSingle(1);
+    } else if( event.keyCode === 38 ) { // up arrow
+      previousIssue();
+    } else if( event.keyCode === 40 ) { // down arrow
+      nextIssue();
     }
   });
 
@@ -136,14 +149,21 @@ window.addEventListener('load', () => {
     return books[index];
   }
 
-  function getIssue() {
+  function getIssueDate() {
     const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
     const dateEl = document.querySelector('#filter-by-date');
     if( !dateEl ) {
-      return '';
+      return null;
     }
     const dateParts = dateEl.value.split('.');
-    const date = new Date(dateParts[2], months.indexOf(dateParts[1]), dateParts[0]);
+    return new Date(dateParts[2], months.indexOf(dateParts[1]), dateParts[0]);
+  }
+
+  function getIssue() {
+    const date = getIssueDate();
+    if( !date ) {
+      return '';
+    }
     const weekName = date.toLocaleString('pt-BR', {  weekday: 'long' }).split('-')[0];
     return `${ date.getFullYear() }-${ zeroPad(date.getMonth() + 1, 2) }-${ zeroPad(date.getDate(), 2) } (${ weekName })`;
   }
@@ -162,12 +182,6 @@ window.addEventListener('load', () => {
 
   function zeroPad(number, count) {
     return String(number).padStart(count, '0');
-  }
-
-  function search() {
-    const dateFrom = new Date(+searchYearEl.value, searchMonthEl.value - 1, 1);
-    const dateTo = new Date(+searchYearEl.value, searchMonthEl.value, 0);
-    location.assign(`https://acervo.folha.com.br/busca.do?startDate=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }&endDate=${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&periododesc=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }+-+${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&page=1&por=Por+Per%C3%ADodo&sort=asc`);
   }
 
   function renderBookOptions() {
@@ -192,7 +206,103 @@ window.addEventListener('load', () => {
 
   if( !booksObserverCallback() ) {
     const booksWrapperEl = document.querySelector('.pages.navigation-view .swiper-wrapper.wrapper');
-    booksObserver.observe(booksWrapperEl, { childList: true });
+    booksWrapperEl && booksObserver.observe(booksWrapperEl, { childList: true });
   }
+
+  ////////////////
+  // Issue search and navigation
+  ///////////
+
+  const searchIssuesEl = divEl.querySelector('[data-search-issues]');
+  const previousIssueEl = divEl.querySelector('[data-previous-issue]');
+  const nextIssueEl = divEl.querySelector('[data-next-issue]');
+
+  divEl.querySelector('[data-search]').addEventListener('click', search);
+  previousIssueEl.addEventListener('click', previousIssue);
+  nextIssueEl.addEventListener('click', nextIssue);
+
+  searchIssuesEl.addEventListener('change', () => {
+    if( searchIssuesEl.value ) {
+      location.assign(searchIssuesEl.value);
+    }
+  });
+
+  function setSearchDateFromCurrentIssue() {
+    const currentIssueDate = getIssueDate();
+    if( currentIssueDate ) {
+      searchYearEl.value = currentIssueDate.getFullYear();
+      searchMonthEl.value = currentIssueDate.getMonth() + 1;
+    }
+  }
+
+  function getSearchUrl(year, month, page) {
+    const dateFrom = new Date(year, month - 1, 1);
+    const dateTo = new Date(year, month, 0);
+    return `https://acervo.folha.com.br/busca.do?startDate=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }&endDate=${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&periododesc=${ zeroPad(dateFrom.getDate(), 2) }%2F${ zeroPad(dateFrom.getMonth() + 1, 2) }%2F${ dateFrom.getFullYear() }+-+${ zeroPad(dateTo.getDate(), 2) }%2F${ zeroPad(dateTo.getMonth() + 1, 2) }%2F${ dateTo.getFullYear() }&page=${ page || 1 }&por=Por+Per%C3%ADodo&sort=asc`;
+  }
+
+  function search() {
+    const url = getSearchUrl(+searchYearEl.value, searchMonthEl.value);
+    location.assign(url);
+  }
+
+  function getCurrentIssueNumber() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('numero');
+  }
+
+  function fetchAndRenderIssues() {
+    const currentIssueNumber = getCurrentIssueNumber();
+    const page1 = getSearchUrl(+searchYearEl.value, searchMonthEl.value, 1);
+    const page2 = getSearchUrl(+searchYearEl.value, searchMonthEl.value, 2);
+    const page3 = getSearchUrl(+searchYearEl.value, searchMonthEl.value, 3);
+
+    Promise.all([
+      fetch(page1),
+      fetch(page2),
+      fetch(page3)
+    ])
+      .then(responses => Promise.all(responses.map(response => response.text())))
+      .then(htmls => {
+        htmls.forEach(html => {
+          // Read issues
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const results = Array.from(doc.querySelectorAll('.results .edition'))
+            .map(edition => ({
+              label: edition.innerText.trim().replace(/\s{2,}|\n/, ' ').replace('�', 'º'),
+              link: edition.getAttribute('href') + '&maxTouch=0',
+            }));
+
+          // Render issues
+          results.forEach(result => {
+            const isCurrent = result.link.includes(`?numero=${ currentIssueNumber }&`);
+            searchIssuesEl.insertAdjacentHTML('beforeEnd', `
+              <option value="${ result.link }" ${ isCurrent ? 'selected' : '' }>${ result.label }</option>
+            `);
+          });
+        });
+      })
+      .catch(err => {
+        alert('Erro ao listar edições :( Tente atualizar a página.');
+      });
+  }
+
+  function previousIssue() {
+    const previousIssueEl = searchIssuesEl.querySelector('option[selected]').previousElementSibling;
+    if( previousIssueEl && previousIssueEl.value ) {
+      location.assign(previousIssueEl.value);
+    }
+  }
+
+  function nextIssue() {
+    const nextIssueEl = searchIssuesEl.querySelector('option[selected]').nextElementSibling;
+    if( nextIssueEl && nextIssueEl.value ) {
+      location.assign(nextIssueEl.value);
+    }
+  }
+
+  setSearchDateFromCurrentIssue();
+  fetchAndRenderIssues();
 
 });
