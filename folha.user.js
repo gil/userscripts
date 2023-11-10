@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.9
+// @version     0.10
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -18,6 +18,7 @@ window.addEventListener('load', () => {
         <h3 style="margin: 10px 0;">Baixar</h3>
         <button data-download-left>(E)squerda</button>
         <button data-download-right>(D)ireita</button>
+        <div data-download-status></div>
 
         <hr/>
 
@@ -26,7 +27,8 @@ window.addEventListener('load', () => {
             <option value="">Todos Cadernos</option>
           </select>
         </div>
-        <button data-download-all>Baixar (ZIP)</button>
+        <button data-download-all>Baixar (Z)IP</button>
+        <button data-download-auto>Auto</button>
         <div data-download-all-status></div>
 
         <h3 style="margin: 10px 0;">Buscar</h3>
@@ -50,6 +52,7 @@ window.addEventListener('load', () => {
   const divEl = document.querySelector('[data-downloader]');
   const collapsibleContainerEl = divEl.querySelector('[data-collapsible-container]');
   const statusEl = divEl.querySelector('[data-download-all-status]');
+  const singleStatusEl = divEl.querySelector('[data-download-status]');
   const searchMonthEl = divEl.querySelector('[data-search-month]');
   const searchYearEl = divEl.querySelector('[data-search-year]');
   const downloadAllBooksEl = divEl.querySelector('[data-download-all-books]');
@@ -63,6 +66,8 @@ window.addEventListener('load', () => {
       downloadSingle(0);
     } else if( event.keyCode === 68 ) { // d
       downloadSingle(1);
+    } else if( event.keyCode === 90 ) { // z
+      downloadAll();
     } else if( event.keyCode === 38 ) { // up arrow
       previousIssue();
     } else if( event.keyCode === 40 ) { // down arrow
@@ -96,8 +101,10 @@ window.addEventListener('load', () => {
     if( !pages[index] ) {
       return alert('Página não encontrada!');
     }
+    singleStatusEl.innerText = 'Aguarde...';
     fetchPage(pages[index])
-      .then(({ blob, name }) => saveAs(blob, name));
+      .then(({ blob, name }) => saveAs(blob, name))
+      .then(() => singleStatusEl.innerText = '');
   }
 
   function downloadMany(pages, book) {
@@ -113,7 +120,10 @@ window.addEventListener('load', () => {
 
         if( processed === pages.length ) {
           zip.generateAsync({type:"blob"}).then(function(content) {
-            saveAs(content, `${issue} - ${ book || 'Todos Cadernos' }.zip`);
+            const currentIssueEl = getCurrentIssueEl();
+            const bookPart = book || currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos';
+            saveAs(content, `${ issue } - ${ bookPart }.zip`);
+            autoPilotNext();
           });
         }
       });
@@ -257,7 +267,7 @@ window.addEventListener('load', () => {
     const page2 = getSearchUrl(+searchYearEl.value, searchMonthEl.value, 2);
     const page3 = getSearchUrl(+searchYearEl.value, searchMonthEl.value, 3);
 
-    Promise.all([
+    return Promise.all([
       fetch(page1),
       fetch(page2),
       fetch(page3)
@@ -270,7 +280,7 @@ window.addEventListener('load', () => {
           const doc = parser.parseFromString(html, 'text/html');
           const results = Array.from(doc.querySelectorAll('.results .edition'))
             .map(edition => ({
-              label: edition.innerText.trim().replace(/\s{2,}|\n/, ' ').replace('�', 'º'),
+              label: edition.innerText.trim().replace(/\s{2,}|\n/, ' ').replace('�', 'o.'),
               link: edition.getAttribute('href') + '&maxTouch=0',
             }));
 
@@ -278,31 +288,93 @@ window.addEventListener('load', () => {
           results.forEach(result => {
             const isCurrent = result.link.includes(`?numero=${ currentIssueNumber }&`);
             searchIssuesEl.insertAdjacentHTML('beforeEnd', `
-              <option value="${ result.link }" ${ isCurrent ? 'selected' : '' }>${ result.label }</option>
+              <option value="${ result.link }" ${ isCurrent ? 'selected data-current-issue' : '' }>${ result.label }</option>
             `);
           });
         });
       })
+      .then(autoPilotDownload) // Start auto pilot, if necessary
       .catch(err => {
         alert('Erro ao listar edições :( Tente atualizar a página.');
       });
   }
 
+  function getCurrentIssueEl() {
+    return searchIssuesEl.querySelector('[data-current-issue]');
+  }
+
   function previousIssue() {
-    const previousIssueEl = searchIssuesEl.querySelector('option[selected]').previousElementSibling;
+    const previousIssueEl = getCurrentIssueEl().previousElementSibling;
     if( previousIssueEl && previousIssueEl.value ) {
       location.assign(previousIssueEl.value);
     }
   }
 
   function nextIssue() {
-    const nextIssueEl = searchIssuesEl.querySelector('option[selected]').nextElementSibling;
-    if( nextIssueEl && nextIssueEl.value ) {
+    const nextIssueEl = getCurrentIssueEl().nextElementSibling;
+    if( nextIssueEl ) {
       location.assign(nextIssueEl.value);
+    } else {
+      fetchNextMonthIssues();
+    }
+  }
+
+  function fetchNextMonthIssues() {
+    const currentIssueDate = getIssueDate();
+
+    if( currentIssueDate ) {
+      currentIssueDate.setDate(1);
+      currentIssueDate.setMonth( currentIssueDate.getMonth() + 1 );
+
+      searchYearEl.value = currentIssueDate.getFullYear();
+      searchMonthEl.value = currentIssueDate.getMonth() + 1;
+
+      fetchAndRenderIssues()
+        .then(nextIssue);
     }
   }
 
   setSearchDateFromCurrentIssue();
   fetchAndRenderIssues();
+
+  ////////////////
+  // Auto pilot
+  ///////////
+
+  const AUTO_PILOT_STOP_YEAR = 1986;
+  divEl.querySelector('[data-download-auto]').addEventListener('click', setAutoPilot);
+
+  function setAutoPilot() {
+    if( isAutoPilotRunning() ) {
+      localStorage.removeItem('__autoPilot');
+      alert('Piloto automático parou!');
+    } else {
+      if( confirm(`Quer iniciar o piloto automático? Ele vai começar a baixar o ZIP dessa edição pra frente e só para em ${ AUTO_PILOT_STOP_YEAR }.`) ) {
+        localStorage.setItem('__autoPilot', true);
+        autoPilotDownload();
+      }
+    }
+  }
+
+  function isAutoPilotRunning() {
+    return localStorage.getItem('__autoPilot') === 'true';
+  }
+
+  function autoPilotDownload() {
+    if( isAutoPilotRunning() ) {
+      const currentIssueDate = getIssueDate();
+      if( currentIssueDate.getFullYear() === AUTO_PILOT_STOP_YEAR ) {
+        setAutoPilot();
+      } else {
+        downloadAll();
+      }
+    }
+  }
+
+  function autoPilotNext() {
+    if( isAutoPilotRunning() ) {
+      nextIssue();
+    }
+  }
 
 });
