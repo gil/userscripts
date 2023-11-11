@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.10
+// @version     0.11
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -49,6 +49,7 @@ window.addEventListener('load', () => {
     </div>
   `);
 
+  const DOWNLOAD_MANY_TIMEOUT = 1000 * 60 * 5; // 5 min
   const divEl = document.querySelector('[data-downloader]');
   const collapsibleContainerEl = divEl.querySelector('[data-collapsible-container]');
   const statusEl = divEl.querySelector('[data-download-all-status]');
@@ -68,6 +69,10 @@ window.addEventListener('load', () => {
       downloadSingle(1);
     } else if( event.keyCode === 90 ) { // z
       downloadAll();
+    } else if( event.keyCode === 76 && !event.shiftKey ) { // l
+      showLogs();
+    } else if( event.keyCode === 76 && event.shiftKey ) { // shift+l
+      removeLogs();
     } else if( event.keyCode === 38 ) { // up arrow
       previousIssue();
     } else if( event.keyCode === 40 ) { // down arrow
@@ -109,6 +114,7 @@ window.addEventListener('load', () => {
 
   function downloadMany(pages, book) {
     const zip = new JSZip();
+    const timeout = setTimeout(location.reload.bind(location), DOWNLOAD_MANY_TIMEOUT);
     let processed = 0;
     updateProgress(processed, pages.length);
 
@@ -118,11 +124,13 @@ window.addEventListener('load', () => {
         processed++;
         updateProgress(processed, pages.length);
 
-        if( processed === pages.length ) {
+        if( processed === pages.length + 10 ) {
+          clearTimeout(timeout);
           zip.generateAsync({type:"blob"}).then(function(content) {
             const currentIssueEl = getCurrentIssueEl();
             const bookPart = book || currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos';
             saveAs(content, `${ issue } - ${ bookPart }.zip`);
+            logDownloads(pages, `[${ new Date().toLocaleString() }] ${ issue } - ${ bookPart }.zip`);
             autoPilotNext();
           });
         }
@@ -341,7 +349,8 @@ window.addEventListener('load', () => {
   // Auto pilot
   ///////////
 
-  const AUTO_PILOT_STOP_YEAR = 1986;
+  const DEFAULT_AUTO_PILOT_STOP_YEAR = 1986;
+
   divEl.querySelector('[data-download-auto]').addEventListener('click', setAutoPilot);
 
   function setAutoPilot() {
@@ -349,7 +358,13 @@ window.addEventListener('load', () => {
       localStorage.removeItem('__autoPilot');
       alert('Piloto automático parou!');
     } else {
-      if( confirm(`Quer iniciar o piloto automático? Ele vai começar a baixar o ZIP dessa edição pra frente e só para em ${ AUTO_PILOT_STOP_YEAR }.`) ) {
+      let stopYear = +prompt('Até que ano quer rodar o piloto automático?', 1986);
+      if( !stopYear || isNaN(stopYear) ) {
+        stopYear = DEFAULT_AUTO_PILOT_STOP_YEAR;
+      }
+      localStorage.setItem('__autoPilotStopYear', stopYear);
+
+      if( confirm(`Quer iniciar o piloto automático? Ele vai começar a baixar o ZIP dessa edição pra frente e só para em ${ getAutoPilotStopYear() }.`) ) {
         localStorage.setItem('__autoPilot', true);
         autoPilotDownload();
       }
@@ -360,10 +375,14 @@ window.addEventListener('load', () => {
     return localStorage.getItem('__autoPilot') === 'true';
   }
 
+  function getAutoPilotStopYear() {
+    return +localStorage.getItem('__autoPilotStopYear') || DEFAULT_AUTO_PILOT_STOP_YEAR;
+  }
+
   function autoPilotDownload() {
     if( isAutoPilotRunning() ) {
       const currentIssueDate = getIssueDate();
-      if( currentIssueDate.getFullYear() === AUTO_PILOT_STOP_YEAR ) {
+      if( currentIssueDate.getFullYear() >= getAutoPilotStopYear() ) {
         setAutoPilot();
       } else {
         downloadAll();
@@ -375,6 +394,57 @@ window.addEventListener('load', () => {
     if( isAutoPilotRunning() ) {
       nextIssue();
     }
+  }
+
+  ////////////////
+  // Logs
+  ///////////
+
+  const MAX_LOG_SIZE = 1024 * 1024 * 5; // 5mb ? max should be 10mb
+
+  function logDownloads(pages, header) {
+    try {
+      const newLog = header + '\n' + pages.map(page => page.dataset.zoom).join('\n');
+      let lastLog = localStorage.getItem('__lastLog') || 0;
+      let log =  localStorage.getItem(`__log${ lastLog }`) || '';
+
+      if( log.length + newLog.length > MAX_LOG_SIZE ) {
+        lastLog++;
+        localStorage.setItem('__lastLog', lastLog);
+        log =  localStorage.getItem(`__log${ lastLog }`) || ''
+      }
+
+      localStorage.setItem(`__log${ lastLog }`, log + '\n' + newLog + '\n');
+
+    } catch(e) {}
+  }
+
+  function showLogs() {
+    try {
+      const lastLog = localStorage.getItem('__lastLog') || 0;
+      let logs = '';
+
+      for( let i = 0; i <= lastLog; i++ ) {
+        logs += localStorage.getItem(`__log${ i }`) || '';
+      }
+
+      document.body.innerHTML = `<pre>${ logs }</pre>`;
+      document.body.style.overflow = 'auto';
+    } catch(e) {
+      alert('Deu ruim!');
+    }
+  }
+
+  function removeLogs() {
+    try {
+      if( confirm('Quer já apagar todos os logs?') ) {
+        const lastLog = localStorage.getItem('__lastLog') || 0;
+        for( let i = 0; i <= lastLog; i++ ) {
+          localStorage.removeItem(`__log${ i }`);
+        }
+        localStorage.removeItem('__lastLog');
+      }
+    } catch(e) {}
   }
 
 });
