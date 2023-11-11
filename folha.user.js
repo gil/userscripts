@@ -124,7 +124,7 @@ window.addEventListener('load', () => {
         processed++;
         updateProgress(processed, pages.length);
 
-        if( processed === pages.length + 10 ) {
+        if( processed === pages.length ) {
           clearTimeout(timeout);
           zip.generateAsync({type:"blob"}).then(function(content) {
             const currentIssueEl = getCurrentIssueEl();
