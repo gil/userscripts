@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.12
+// @version     0.13
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -137,7 +137,8 @@ window.addEventListener('load', () => {
               const fullName = `${ issue } - ${ bookPart }`;
               saveAs(content, `${ fullName }.zip`);
               logDownloads(pages, errors, fullName);
-              autoPilotNext();
+
+              setTimeout(autoPilotNext, 3000);
             });
           }
         });
