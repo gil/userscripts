@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.11
+// @version     0.12
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -49,7 +49,7 @@ window.addEventListener('load', () => {
     </div>
   `);
 
-  const DOWNLOAD_MANY_TIMEOUT = 1000 * 60 * 5; // 5 min
+  const DOWNLOAD_MANY_TIMEOUT = 1000 * 60 * 1; // 1 min
   const divEl = document.querySelector('[data-downloader]');
   const collapsibleContainerEl = divEl.querySelector('[data-collapsible-container]');
   const statusEl = divEl.querySelector('[data-download-all-status]');
@@ -115,26 +115,32 @@ window.addEventListener('load', () => {
   function downloadMany(pages, book) {
     const zip = new JSZip();
     const timeout = setTimeout(location.reload.bind(location), DOWNLOAD_MANY_TIMEOUT);
+    const errors = [];
     let processed = 0;
     updateProgress(processed, pages.length);
 
     pages.forEach((page, index) => {
-      fetchPage(pages[index]).then(({ blob, name, issue }) => {
-        zip.file(name, blob, { base64: true });
-        processed++;
-        updateProgress(processed, pages.length);
+      queuedPromise(() => fetchPage(pages[index]))
+        .then(({ blob, name }) => {
+          zip.file(name, blob, { base64: true });
+        })
+        .catch(() => errors.push(page.dataset.zoom))
+        .finally(() => {
+          processed++;
+          updateProgress(processed, pages.length);
 
-        if( processed === pages.length ) {
-          clearTimeout(timeout);
-          zip.generateAsync({type:"blob"}).then(function(content) {
-            const currentIssueEl = getCurrentIssueEl();
-            const bookPart = book || currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos';
-            saveAs(content, `${ issue } - ${ bookPart }.zip`);
-            logDownloads(pages, `[${ new Date().toLocaleString() }] ${ issue } - ${ bookPart }.zip`);
-            autoPilotNext();
-          });
-        }
-      });
+          if( processed === pages.length ) {
+            clearTimeout(timeout);
+            zip.generateAsync({type:'blob'}).then(function(content) {
+              const currentIssueEl = getCurrentIssueEl();
+              const bookPart = book || currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos';
+              const fullName = `${ issue } - ${ bookPart }`;
+              saveAs(content, `${ fullName }.zip`);
+              logDownloads(pages, errors, fullName);
+              autoPilotNext();
+            });
+          }
+        });
     });
   }
 
@@ -143,20 +149,12 @@ window.addEventListener('load', () => {
   }
 
   function fetchPage(page) {
-    return new Promise(resolve => {
-      const xhr = new XMLHttpRequest();
+    const extension = page.dataset.zoom.split('.').at(-1);
+    const name = `${ issue } - ${ getBook(page) } ${ zeroPad(page.dataset.label, 3) } [ID ${ page.dataset.id }].${ extension }`;
 
-      const extension = page.dataset.zoom.split('.').at(-1);
-      const name = `${ issue } - ${ getBook(page) } ${ zeroPad(page.dataset.label, 3) } [ID ${ page.dataset.id }].${ extension }`;
-
-      xhr.open('GET', page.dataset.zoom, true);
-      xhr.responseType = 'blob';
-      xhr.onload = function () {
-        const blob = new Blob([xhr.response], { type : 'application/octet-stream' });
-        resolve({ blob, name, issue });
-      };
-      xhr.send();
-    });
+    return fetch(page.dataset.zoom)
+      .then(response => response.blob())
+      .then(blob => ({ blob, name }));
   }
 
   function getBook(page) {
@@ -289,8 +287,9 @@ window.addEventListener('load', () => {
           const results = Array.from(doc.querySelectorAll('.results .edition'))
             .map(edition => ({
               label: edition.innerText.trim().replace(/\s{2,}|\n/, ' ').replace('�', 'o.'),
-              link: edition.getAttribute('href') + '&maxTouch=0',
-            }));
+              link: (edition.getAttribute('href') + '&maxTouch=0').replace(/&anchor=\d+/, ''),
+            }))
+            .filter((edition, index, array) => array.findIndex(e => e.link === edition.link) === index); // remove duplicate links
 
           // Render issues
           results.forEach(result => {
@@ -402,9 +401,9 @@ window.addEventListener('load', () => {
 
   const MAX_LOG_SIZE = 1024 * 1024 * 5; // 5mb ? max should be 10mb
 
-  function logDownloads(pages, header) {
+  function logDownloads(pages, errors, fullName) {
     try {
-      const newLog = header + '\n' + pages.map(page => page.dataset.zoom).join('\n');
+      const newLog = '[' + new Date().toLocaleString() + '] ' + fullName + '\n' + pages.map(page => page.dataset.zoom).join('\n') + '\n---ERROS---\n' + errors.join('\n');
       let lastLog = localStorage.getItem('__lastLog') || 0;
       let log =  localStorage.getItem(`__log${ lastLog }`) || '';
 
@@ -415,6 +414,9 @@ window.addEventListener('load', () => {
       }
 
       localStorage.setItem(`__log${ lastLog }`, log + '\n' + newLog + '\n');
+
+      const logBlob = new Blob([newLog], {type: 'text/plain;charset=utf-8'});
+      saveAs(logBlob, `${ fullName }.txt`);
 
     } catch(e) {}
   }
@@ -430,6 +432,14 @@ window.addEventListener('load', () => {
 
       document.body.innerHTML = `<pre>${ logs }</pre>`;
       document.body.style.overflow = 'auto';
+
+      setTimeout(() => {
+        if( confirm('Quer aproveitar e salvar o log todo?') ) {
+          const logBlob = new Blob([logs], {type: 'text/plain;charset=utf-8'});
+          saveAs(logBlob, `Log Completo - ${ new Date().toLocaleString() }.txt`);
+        }
+      })
+
     } catch(e) {
       alert('Deu ruim!');
     }
@@ -446,5 +456,57 @@ window.addEventListener('load', () => {
       }
     } catch(e) {}
   }
+
+  ////////////////
+  // Promise Queue
+  ///////////
+
+  const QUEUE_LIMIT = 4;
+  const promiseQueue = [];
+  let runningPromises = 0;
+
+  function queuedPromise(callback) {
+    return new Promise((resolve, reject) => {
+      promiseQueue.push([callback, resolve, reject]);
+      runQueue();
+    });
+  }
+
+  function runQueue() {
+    if( !promiseQueue.length || runningPromises === QUEUE_LIMIT ) {
+      return;
+    }
+    const item = promiseQueue.shift();
+    const [callback, resolve, reject] = item;
+
+    runningPromises++;
+
+    callback()
+      .then((...args) => resolve.apply(this, args))
+      .catch((...args) => reject.apply(this, args))
+      .finally(() => {
+        runningPromises--;
+        runQueue();
+      });
+  }
+
+  // Pra testar a fila se precisar:
+  /*
+  function resolveSometime(time) {
+    return new Promise((resolve, reject) => {
+      setTimeout(reject.bind(this, time), time);
+    });
+  }
+
+  console.warn('partiu...');
+
+  Promise.all([
+    queuedPromise(() => resolveSometime(1003)),
+    queuedPromise(() => resolveSometime(1002)),
+    queuedPromise(() => resolveSometime(1001))
+  ])
+    .then(results => console.warn('resolveu tudo!', results))
+    .catch(results => console.warn('deu ruim!', results));
+  */
 
 });
