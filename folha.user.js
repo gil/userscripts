@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.13
+// @version     0.14
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
@@ -155,6 +155,7 @@ window.addEventListener('load', () => {
 
     return fetch(page.dataset.zoom)
       .then(response => response.blob())
+      .then(blob => new Blob([blob], { type : 'application/octet-stream' })) // without this, mobile firefox downloads as HTML
       .then(blob => ({ blob, name }));
   }
 
