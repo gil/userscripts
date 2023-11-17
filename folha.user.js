@@ -3,14 +3,14 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.15
+// @version     0.16
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
 // @require     https://raw.githubusercontent.com/eligrey/FileSaver.js/master/dist/FileSaver.min.js
 // ==/UserScript==
 
-const VERSION = 0.15;
+const VERSION = 0.16;
 
 window.addEventListener('load', () => {
 
@@ -408,9 +408,13 @@ window.addEventListener('load', () => {
 
   function logDownloads(pages, errors, fullName) {
     try {
-      const newLog = '[' + new Date().toLocaleString() + '] ' + fullName + '\n' + pages.map(page => page.dataset.zoom).join('\n') + '\n---ERROS---\n' + errors.join('\n');
+      let newLog = '[' + new Date().toLocaleString() + '] ' + fullName + '\n' + pages.map(page => page.dataset.zoom).join('\n');
       let lastLog = localStorage.getItem('__lastLog') || 0;
       let log =  localStorage.getItem(`__log${ lastLog }`) || '';
+
+      if( errors && errors.length ) {
+         newLog += '\n---ERROS---\n' + errors.join('\n');
+      }
 
       if( log.length + newLog.length > MAX_LOG_SIZE ) {
         lastLog++;
