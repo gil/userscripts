@@ -3,12 +3,14 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.14
+// @version     0.15
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
 // @require     https://raw.githubusercontent.com/eligrey/FileSaver.js/master/dist/FileSaver.min.js
 // ==/UserScript==
+
+const VERSION = 0.15;
 
 window.addEventListener('load', () => {
 
@@ -45,6 +47,7 @@ window.addEventListener('load', () => {
             <button data-next-issue>Próxima (⬇)</button>
           </div>
         </div>
+        <small>v${ VERSION }</small>
       </div>
     </div>
   `);
@@ -133,7 +136,7 @@ window.addEventListener('load', () => {
             clearTimeout(timeout);
             zip.generateAsync({type:'blob'}).then(function(content) {
               const currentIssueEl = getCurrentIssueEl();
-              const bookPart = book || currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos';
+              const bookPart = book || ( currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos' );
               const fullName = `${ issue } - ${ bookPart }`;
               saveAs(content, `${ fullName }.zip`);
               logDownloads(pages, errors, fullName);
