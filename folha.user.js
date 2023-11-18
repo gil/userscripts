@@ -3,14 +3,14 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.16
+// @version     0.17
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
 // @require     https://raw.githubusercontent.com/eligrey/FileSaver.js/master/dist/FileSaver.min.js
 // ==/UserScript==
 
-const VERSION = 0.16;
+const VERSION = 0.17;
 
 window.addEventListener('load', () => {
 
@@ -422,7 +422,7 @@ window.addEventListener('load', () => {
         log =  localStorage.getItem(`__log${ lastLog }`) || ''
       }
 
-      localStorage.setItem(`__log${ lastLog }`, log + '\n' + newLog + '\n');
+      //localStorage.setItem(`__log${ lastLog }`, log + '\n' + newLog + '\n');
 
       const logBlob = new Blob([newLog], {type: 'text/plain;charset=utf-8'});
       saveAs(logBlob, `${ fullName }.txt`);
