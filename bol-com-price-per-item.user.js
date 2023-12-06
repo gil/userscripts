@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         bol.com: Price per item
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.1
+// @version      0.0.2
 // @description  Try to estimate the price per item, based on numbers on the item title.
 // @author       Andre Gil
 // @match        https://www.bol.com/*/s/*
@@ -18,11 +18,11 @@ const ranking = [];
 document.querySelectorAll('.js_item_root').forEach(item => {
 
     const title = item.querySelector('.product-title').innerText.trim();
-    const priceField = item.querySelector('.price-block__price');
+    const priceField = item.querySelector('[data-test="price"]');
     if( !priceField ) {
         return;
     }
-    const price = Number(item.querySelector('.price-block__price').innerText.trim().replace('\n', '.').replace('-', 0));
+    const price = Number(priceField.innerText.trim().replace('\n', '.').replace('-', 0));
     const numbers = (title.match(/(\d+\s*x\s*\d+)|\d+/g) || [])
         .map(number => {
             const parts = number.match(/\d+/g);
