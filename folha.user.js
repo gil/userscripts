@@ -3,14 +3,14 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://acervo.folha.com.br/*
 // @grant       none
-// @version     0.17
+// @version     0.18
 // @author      -
 // @description 01/11/2023, 23:35:19
 // @require     https://raw.githubusercontent.com/Stuk/jszip/main/dist/jszip.min.js
 // @require     https://raw.githubusercontent.com/eligrey/FileSaver.js/master/dist/FileSaver.min.js
 // ==/UserScript==
 
-const VERSION = 0.17;
+const VERSION = 0.18;
 
 window.addEventListener('load', () => {
 
@@ -72,6 +72,8 @@ window.addEventListener('load', () => {
       downloadSingle(1);
     } else if( event.keyCode === 90 ) { // z
       downloadAll();
+    } else if( event.keyCode === 70 ) { // f
+      downloadFolhinha();
     } else if( event.keyCode === 76 && !event.shiftKey ) { // l
       showLogs();
     } else if( event.keyCode === 76 && event.shiftKey ) { // shift+l
@@ -81,6 +83,7 @@ window.addEventListener('load', () => {
     } else if( event.keyCode === 40 ) { // down arrow
       nextIssue();
     }
+    console.log(event.keyCode)
   });
 
   function isLargeDisplay() {
@@ -97,11 +100,18 @@ window.addEventListener('load', () => {
   renderIssue();
 
   function downloadAll() {
-    let pages = Array.from(document.querySelectorAll('[data-zoom]'));
-    if( downloadAllBooksEl.value ) {
-      pages = pages.filter(page => getBook(page) === downloadAllBooksEl.value);
-    }
-    downloadMany(pages, downloadAllBooksEl.value);
+    let waitInterval = setInterval(() => {
+      let pages = Array.from(document.querySelectorAll('[data-zoom]'));
+      if( downloadAllBooksEl.value ) {
+        pages = pages.filter(page => getBook(page) === downloadAllBooksEl.value);
+      }
+
+      if( pages.length ) {
+        clearInterval(waitInterval);
+        downloadMany(pages, downloadAllBooksEl.value);
+        //downloadAria2cLog(pages, downloadAllBooksEl.value);
+      }
+    }, 500);
   }
 
   function downloadSingle(index) {
@@ -146,6 +156,34 @@ window.addEventListener('load', () => {
           }
         });
     });
+  }
+
+  function downloadAria2cLog(pages, book) {
+    let log = '';
+    const currentIssueEl = getCurrentIssueEl();
+    const bookPart = book || ( currentIssueEl ? currentIssueEl.innerText.substr(11) : 'Todos Cadernos' );
+    const fullName = `${ issue } - ${ bookPart }`;
+
+    pages.forEach((page, index) => {
+      const extension = page.dataset.zoom.split('.').at(-1);
+      const name = `${ zeroPad(index + 1, 3) } - ${ issue } - ${ getBook(page) } ${ zeroPad(page.dataset.label, 3) } [ID ${ page.dataset.id }].${ extension }`;
+      log += `${page.dataset.zoom}\n`;
+      log += `  out=${ name }\n`;
+      log += `  dir=${ fullName }\n`;
+    });
+
+    const logBlob = new Blob([log], {type: 'text/plain;charset=utf-8'});
+    saveAs(logBlob, `${ fullName }.a2c.txt`);
+
+    console.log(log);
+    setTimeout(autoPilotNext, 1000);
+  }
+
+  function downloadFolhinha() {
+    downloadAllBooksEl.value = 'Folhinha';
+    if( downloadAllBooksEl.value ) {
+      downloadAll();
+    }
   }
 
   function updateProgress(processed, total) {
@@ -285,6 +323,8 @@ window.addEventListener('load', () => {
     ])
       .then(responses => Promise.all(responses.map(response => response.text())))
       .then(htmls => {
+        const allIssues = [];
+
         htmls.forEach(html => {
           // Read issues
           const parser = new DOMParser();
@@ -293,21 +333,29 @@ window.addEventListener('load', () => {
             .map(edition => ({
               label: edition.innerText.trim().replace(/\s{2,}|\n/, ' ').replace('�', 'o.'),
               link: (edition.getAttribute('href') + '&maxTouch=0').replace(/&anchor=\d+/, ''),
-            }))
-            .filter((edition, index, array) => array.findIndex(e => e.link === edition.link) === index); // remove duplicate links
+            }));
 
-          // Render issues
-          results.forEach(result => {
-            const isCurrent = result.link.includes(`?numero=${ currentIssueNumber }&`);
-            searchIssuesEl.insertAdjacentHTML('beforeEnd', `
-              <option value="${ result.link }" ${ isCurrent ? 'selected data-current-issue' : '' }>${ result.label }</option>
-            `);
-          });
+          allIssues.push(...results);
         });
+
+        if( allIssues.length > 0 ) {
+          // Render issues
+          allIssues
+            .filter((edition, index, array) => array.findIndex(e => e.link === edition.link) === index) // remove duplicate links
+            .forEach(result => {
+              const isCurrent = result.link.includes(`?numero=${ currentIssueNumber }&`);
+              searchIssuesEl.insertAdjacentHTML('beforeEnd', `
+                <option value="${ result.link }" ${ isCurrent ? 'selected data-current-issue' : '' }>${ result.label }</option>
+              `);
+            });
+        } else {
+          throw new Error('No more issues to fetch!');
+        }
       })
       .then(autoPilotDownload) // Start auto pilot, if necessary
       .catch(err => {
         alert('Erro ao listar edições :( Tente atualizar a página.');
+        throw new Error('Error fetching issues!');
       });
   }
 
@@ -353,7 +401,7 @@ window.addEventListener('load', () => {
   // Auto pilot
   ///////////
 
-  const DEFAULT_AUTO_PILOT_STOP_YEAR = 1986;
+  const DEFAULT_AUTO_PILOT_STOP_YEAR = 1988;
 
   divEl.querySelector('[data-download-auto]').addEventListener('click', setAutoPilot);
 
@@ -362,7 +410,7 @@ window.addEventListener('load', () => {
       localStorage.removeItem('__autoPilot');
       alert('Piloto automático parou!');
     } else {
-      let stopYear = +prompt('Até que ano quer rodar o piloto automático?', 1986);
+      let stopYear = +prompt('Até que ano quer rodar o piloto automático?', DEFAULT_AUTO_PILOT_STOP_YEAR);
       if( !stopYear || isNaN(stopYear) ) {
         stopYear = DEFAULT_AUTO_PILOT_STOP_YEAR;
       }
