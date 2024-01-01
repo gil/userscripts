@@ -2,7 +2,7 @@
 // @name         YouTube Clickbait Reducer
 // @namespace    https://github.com/gil/userscripts
 // @version      0.0.1
-// @description  Remove a bunch of stuff to make YouTube less addictive and distracting
+// @description  Replace thumbnails with a video frame and titles not all caps.
 // @author       Andre Gil
 // @match        https://*.youtube.com/*
 // @icon         https://www.google.com/s2/favicons?domain=youtube.com
