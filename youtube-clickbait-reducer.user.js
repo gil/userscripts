@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Clickbait Reducer
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.
+// @version      0.0.2
 // @description  Replace thumbnails with a video frame and titles not all caps.
 // @author       Andre Gil
 // @match        https://*.youtube.com/*
@@ -22,6 +22,12 @@ const REPLACE_REGEX = /(hq1|hq2|hq3|hqdefault|mqdefault|hq720|maxresdefault)(_cu
 const REPLACE_WITH = `${ PREFERRED_THUMB }.$3`;
 
 GM.addStyle(`
+  /* Don't truncate titles */
+  #video-title {
+    max-height: none !important;
+  }
+
+  /* Fix title case */
   #video-title,
   .ytp-videowall-still-info-title,
   .large-media-item-metadata > a > h3 > span,
