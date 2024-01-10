@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Clickbait Reducer
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.1
+// @version      0.0.
 // @description  Replace thumbnails with a video frame and titles not all caps.
 // @author       Andre Gil
 // @match        https://*.youtube.com/*
