@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Hemeroteca
 // @namespace   Violentmonkey Scripts
-// @match       https://acervo.folha.com.br/*
+// @match       https://memoria.bn.gov.br/*
 // @grant       none
 // @version     0.1
 // @author      -
