@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Detox
 // @namespace    https://github.com/gil/userscripts
-// @version      0.0.5
+// @version      0.0.6
 // @description  Remove a bunch of stuff to make YouTube less addictive and distracting
 // @author       Andre Gil
 // @match        https://*.youtube.com/*
@@ -23,6 +23,7 @@ GM.addStyle(`
   /* Recommended */
   #items.ytd-watch-next-secondary-results-renderer,
   .ytp-pause-overlay,
+  .ytp-suggestion-set,
 
   /* Chat */
   ytd-live-chat-frame#chat,
@@ -35,8 +36,8 @@ GM.addStyle(`
   .yt-simple-endpoint[title="Shorts"],
   .yt-simple-endpoint[href^="/feed/explore"],
   .yt-simple-endpoint[href^="/feed/trending"],
-  #sections>ytd-guide-section-renderer:nth-child(3), /* explore */
-  #sections>ytd-guide-section-renderer:nth-child(4), /* more from youtube */
+  #sections>ytd-guide-section-renderer:nth-child(4), /* explore */
+  #sections>ytd-guide-section-renderer:nth-child(5), /* more from youtube */
   ytd-browse[page-subtype="trending"],
 
   /* Includes paid promotion */
